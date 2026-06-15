@@ -1,0 +1,331 @@
+- name: Configure GraftestlabB-Sec Cisco Router
+  hosts: GraftestlabB-Sec
+  gather_facts: no
+  connection: ansible.netcommon.network_cli
+  
+  tasks:
+    - name: Basic system settings
+      cisco.ios.ios_config:
+        lines:
+          - enable secret TableJumper48
+          - hostname GraftestlabB-Sec
+          - ip domain name awot.local
+          - no ip domain lookup
+          - service password-encryption
+          - ip name-server 10.90.36.36 10.90.36.4
+
+    - name: Configure Loopback1
+      cisco.ios.ios_config:
+        lines:
+          - ip address 10.83.4.33 255.255.255.255
+          - description MGMNT
+        parents: interface Loopback1
+
+    - name: Configure Loopback4
+      cisco.ios.ios_config:
+        lines:
+          - ip address 10.83.4.200 255.255.255.255
+          - description BGP LTE
+        parents: interface Loopback4
+
+    - name: VLANs and interfaces
+      cisco.ios.ios_config:
+        lines:
+          - vlan 10
+          - vlan 20
+          - vlan 40
+
+    - name: Configure vlan 10
+      cisco.ios.ios_config:
+        lines:
+          - description ICS
+          - ip address 10.83.3.4 255.255.255.240
+          - vrrp 1 ip 10.83.3.1
+          - vrrp 1 delay minimum 30 reload 60
+          - vrrp 1 timers advertise 3
+          - vrrp 1 timers learn
+          - vrrp 1 priority 90
+          - vrrp 1 preempt
+        parents: interface vlan10
+
+    - name: Configure vlan 20
+      cisco.ios.ios_config:
+        lines:
+          - description ICS_MGMNT
+          - ip address 10.83.2.4 255.255.255.240
+          - vrrp 1 ip 10.83.2.1
+          - vrrp 1 delay minimum 30 reload 60
+          - vrrp 1 timers advertise 3
+          - vrrp 1 timers learn
+          - vrrp 1 priority 90
+          - vrrp 1 preempt
+        parents: interface vlan20
+
+    - name: Configure vlan 40
+      cisco.ios.ios_config:
+        lines:
+          - description SCADA
+          - ip address 10.83.3.20 255.255.255.240
+          - vrrp 1 ip 10.83.3.17
+          - vrrp 1 delay minimum 30 reload 60
+          - vrrp 1 timers advertise 3
+          - vrrp 1 timers learn
+          - vrrp 1 priority 90
+          - vrrp 1 preempt
+        parents: interface vlan40
+
+    - name: Configure Fastethernet 0/0/1
+      cisco.ios.ios_config:
+        lines:
+          - switchport mode trunk
+          - vlan-id dot1q 10
+          - vlan-id dot1q 20
+          - vlan-id dot1q 40
+          - no shutdown
+        parents: interface Fastethernet0/0/1
+
+    - name: Configure Fastethernet 0/0/2
+      cisco.ios.ios_config:
+        lines:
+          - switchport mode trunk
+          - vlan-id dot1q 10
+          - vlan-id dot1q 20
+          - vlan-id dot1q 40
+          - no shutdown
+        parents: interface Fastethernet0/0/2
+
+    - name: NTP configuration
+      cisco.ios.ios_config:
+        lines:
+          - ntp source Loopback1
+          - ntp server 10.90.36.36
+          - ntp server 10.90.36.4
+
+    - name: Services and timestamps
+      cisco.ios.ios_config:
+        lines:
+          - service timestamps debug datetime localtime show-timezone
+          - service timestamps log datetime localtime
+
+    - name: IKEv2 and IPSec configurations
+      cisco.ios.ios_config:
+        lines:      
+          - crypto ikev2 proposal prop2
+          - encryption aes-gcm-128
+          - prf sha256
+          - group 14
+          - crypto ikev2 policy policy2
+          - match fvrf any
+          - proposal prop2
+          - crypto ikev2 keyring kyr2
+          - peer peer2
+          - address 10.90.223.7
+          - pre-shared-key local B089!abc123477
+          - pre-shared-key remote B089!abc123477
+          - crypto ikev2 profile profile2
+          - match fvrf any
+          - match identity remote address 10.90.223.7 255.255.255.255
+          - identity local address Cellular0/1/0
+          - authentication remote pre-share
+          - authentication local pre-share
+          - keyring local kyr2
+          - no config-exchange request
+          - crypto ipsec transform-set TS2 esp-gcm
+          - mode transport
+          - crypto ipsec profile phse2-prof2
+          - set transform-set TS2
+          - set ikev2-profile profile2          
+          - crypto ikev2 proposal prop4
+          - encryption aes-gcm-128
+          - prf sha256
+          - group 14
+          - crypto ikev2 policy policy4
+          - match fvrf any
+          - proposal prop4
+          - crypto ikev2 keyring kyr4
+          - peer peer4
+          - address 10.83.0.48
+          - pre-shared-key local B089!abc123477
+          - pre-shared-key remote B089!abc123477
+          - crypto ikev2 profile profile4
+          - match fvrf any
+          - match identity remote address 10.83.0.48 255.255.255.255
+          - identity local address Cellular0/1/0
+          - authentication remote pre-share
+          - authentication local pre-share
+          - keyring local kyr4
+          - no config-exchange request
+          - crypto ipsec transform-set TS4 esp-gcm
+          - mode transport
+          - crypto ipsec profile phse2-prof4
+          - set transform-set TS4
+          - set ikev2-profile profile4         
+          - crypto ikev2 proposal prop6
+          - encryption aes-gcm-128
+          - prf sha256
+          - group 14
+          - crypto ikev2 policy policy6
+          - match fvrf any
+          - proposal prop6
+          - crypto ikev2 keyring kyr6
+          - peer peer6
+          - address 10.83.0.49
+          - pre-shared-key local B089!abc123477
+          - pre-shared-key remote B089!abc123477
+          - crypto ikev2 profile profile6
+          - match fvrf any
+          - match identity remote address 10.83.0.49 255.255.255.255
+          - identity local address Cellular0/1/0
+          - authentication remote pre-share
+          - authentication local pre-share
+          - keyring local kyr6
+          - no config-exchange request
+          - crypto ipsec transform-set TS6 esp-gcm
+          - mode transport
+          - crypto ipsec profile phse2-prof6
+          - set transform-set TS6
+          - set ikev2-profile profile6
+
+    - name: Tunnels
+      cisco.ios.ios_config:
+        lines:
+          - interface Tunnel2
+          - description GraftestlabB-AZLB-LTE
+          - ip address 10.89.96.53 255.255.255.252
+          - ip tcp adjust-mss 1300
+          - keepalive 10 3
+          - tunnel source 10.83.128.35
+          - tunnel mode ipsec ipv4
+          - tunnel destination 10.90.223.7
+          - tunnel protection ipsec profile phse2-prof2
+          - interface Tunnel4
+          - description GraftestlabB-LINC-LTE
+          - ip address 10.89.104.53 255.255.255.252
+          - ip tcp adjust-mss 1300
+          - keepalive 10 3
+          - tunnel source 10.83.128.35
+          - tunnel mode ipsec ipv4
+          - tunnel destination 10.83.0.48
+          - tunnel protection ipsec profile phse2-prof4
+          - interface Tunnel6
+          - description GraftestlabB-GRAF-LTE
+          - ip address 10.89.108.85 255.255.255.252
+          - ip tcp adjust-mss 1300
+          - keepalive 10 3
+          - tunnel source 10.83.128.35
+          - tunnel mode ipsec ipv4
+          - tunnel destination 10.83.0.49
+          - tunnel protection ipsec profile phse2-prof6
+
+    - name: BGP configuration
+      cisco.ios.ios_config:
+        lines:
+          - router bgp 64809
+          - bgp log-neighbor-changes
+          - neighbor 10.90.223.97 remote-as 64810
+          - neighbor 10.90.223.97 fall-over bfd multi-hop
+          - neighbor 10.90.223.97 update-source loopback2
+          - neighbor 10.90.223.97 ebgp-multihop 2
+          - neighbor 10.90.223.98 remote-as 64810
+          - neighbor 10.90.223.98 fall-over bfd multi-hop
+          - neighbor 10.90.223.98 update-source loopback4
+          - neighbor 10.90.223.98 ebgp-multihop 2
+          - neighbor 10.83.0.50 remote-as 64806
+          - neighbor 10.83.0.50 fall-over bfd multi-hop
+          - neighbor 10.83.0.50 update-source loopback2 
+          - neighbor 10.83.0.50 ebgp-multihop 2
+          - neighbor 10.83.0.54 remote-as 64806
+          - neighbor 10.83.0.54 fall-over bfd multi-hop
+          - neighbor 10.83.0.54 update-source loopback4 
+          - neighbor 10.83.0.54 ebgp-multihop 2
+          - neighbor 10.83.0.51 remote-as 64804
+          - neighbor 10.83.0.51 fall-over bfd multi-hop
+          - neighbor 10.83.0.51 update-source loopback2 
+          - neighbor 10.83.0.51 ebgp-multihop 2
+          - neighbor 10.83.0.55 remote-as 64804
+          - neighbor 10.83.0.55 fall-over bfd multi-hop 
+          - neighbor 10.83.0.55 update-source loopback4
+          - neighbor 10.83.0.55 ebgp-multihop 2         
+          - address-family ipv4
+          - neighbor 10.90.223.97 activate
+          - neighbor 10.90.223.97 soft-reconfiguration inbound
+          - neighbor 10.90.223.97 distribute-list NO-TRANSIT out
+          - neighbor 10.90.223.98 activate
+          - neighbor 10.90.223.98 soft-reconfiguration inbound
+          - neighbor 10.90.223.98 distribute-list NO-TRANSIT out
+          - neighbor 10.83.0.50 activate
+          - neighbor 10.83.0.50 soft-reconfiguration inbound
+          - neighbor 10.83.0.50 distribute-list NO-TRANSIT out
+          - neighbor 10.83.0.54 activate
+          - neighbor 10.83.0.54 soft-reconfiguration inbound
+          - neighbor 10.83.0.54 distribute-list NO-TRANSIT out
+          - neighbor 10.83.0.51 activate
+          - neighbor 10.83.0.51 soft-reconfiguration inbound
+          - neighbor 10.83.0.51 distribute-list NO-TRANSIT out
+          - neighbor 10.83.0.55 activate
+          - neighbor 10.83.0.55 soft-reconfiguration inbound
+          - neighbor 10.83.0.55 distribute-list NO-TRANSIT out 
+          - network 10.83.2.0 mask 255.255.255.240
+          - network 10.83.3.0 mask 255.255.255.240
+          - network 10.83.3.16 mask 255.255.255.240
+          - exit-address-family
+
+    - name: AAA and RADIUS
+      cisco.ios.ios_config:
+        lines:
+          - aaa new-model
+          - ip radius source-interface Loopback1
+          - aaa authentication login default group radius local
+          - aaa authorization console
+          - aaa authorization exec default group radius local
+          - radius server AWS_RADIUS_SERVER
+          - address ipv4 10.90.36.8 auth-port 1812 acct-port 1813
+          - key Every$-after875
+
+    - name: Access lists
+      cisco.ios.ios_config:
+        lines:
+          - ip access-list standard NO-TRANSIT
+          - permit 10.83.2.0 0.0.0.15
+          - permit 10.83.3.0 0.0.0.15
+          - permit 10.83.3.16 0.0.0.15
+          - permit 10.83.4.33 0.0.0.0
+          - ip access-list standard SNMP_AWSPRIVATE
+          - permit 10.89.128.10
+          - ip access-list standard SNMP-ACCESS
+          - permit 10.90.53.0 0.0.0.31
+
+    - name: SNMPv3 configuration
+      cisco.ios.ios_config:
+        lines:
+          - snmp-server view SNMP-V3-READONLY-VIEW iso included 
+          - snmp-server group SNMP-V3-READONLY v3 priv read SNMP-V3-READONLY-VIEW access SNMP_AWSPRIVATE
+          - snmp-server user AWSPrivate SNMP-V3-READONLY v3 auth sha-2 384 Pj79Lws3AxFR$5 priv aes 192 Pj79Lws3AxFR$5 access SNMP_AWSPRIVATE
+          - snmp-server host 10.89.128.10 version 3 priv AWSPrivate
+          - snmp-server view SNMP-V3-RO-VIEW iso included
+          - snmp-server group SNMPv3-RO v3 priv read SNMP-V3-RO-VIEW access SNMP-ACCESS
+          - snmp-server user snmpv3ro SNMPv3-RO v3 auth sha-2 256 z6gpOzD0gcLQ1gGL priv aes 256 FeYivgbf4KN1nQjt access SNMP-ACCESS
+          - snmp-server host 10.90.53.5 version 3 priv snmpv3ro
+          - snmp-server trap-source Loopback0
+          - snmp-server source-interface informs Loopback1
+          - snmp-server enable traps snmp authentication linkdown linkup coldstart warmstart
+          - snmp-server enable traps tty
+          - snmp-server enable traps config
+          - snmp-server enable traps memory bufferpeak
+          - snmp-server enable traps hsrp
+          - snmp-server enable traps bgp
+          - snmp-server enable traps cpu threshold
+          - snmp-server enable traps envmon fan shutdown supply temperature status
+
+    - name: Console and VTY lines
+      cisco.ios.ios_config:
+        lines:
+          - line vty 0 4
+          - exec-timeout 30
+          - logging synchronous
+          - line vty 5 14
+          - exec-timeout 30
+          - logging synchronous
+          - line console 0
+          - exec-timeout 30
+          - logging synchronous

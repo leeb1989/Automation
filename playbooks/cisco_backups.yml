@@ -1,0 +1,13 @@
+- name: Backup Cisco router configs
+  hosts: all
+  gather_facts: no
+
+  tasks:
+    - name: Backup running config
+      cisco.ios.ios_config:
+        backup: yes
+        backup_options:
+          dir_path: ./Cisco_backups
+          filename: "{{ inventory_hostname }}.cfg"
+
+  dest: "/mnt/c/Users/leeba/Desktop/Automation/Cisco_backups/{{ inventory_hostname }}.cfg"       
