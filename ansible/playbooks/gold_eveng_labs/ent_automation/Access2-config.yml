@@ -1,0 +1,56 @@
+- name: Configure Access2 switch
+  hosts: Access2
+  gather_facts: no
+
+  tasks:
+
+    - name: Set hostname
+      cisco.ios.ios_config:
+        lines:
+          - hostname Access2
+
+    - name: Create VLANs 10, 20, 30
+      cisco.ios.ios_config:
+        lines:
+          - vlan 10
+          - vlan 20
+          - vlan 30
+
+    - name: Configure access ports for VLAN 10 (Gi0/2-3)
+      cisco.ios.ios_config:
+        lines:
+          - switchport access vlan 10
+          - switchport mode access
+          - spanning-tree portfast
+        parents: interface range GigabitEthernet0/2-3
+
+    - name: Configure access ports for VLAN 20 (Gi1/0-1)
+      cisco.ios.ios_config:
+        lines:
+          - switchport access vlan 20
+          - switchport mode access
+          - spanning-tree portfast
+        parents: interface range GigabitEthernet1/0-1
+
+    - name: Configure access ports for VLAN 30 (Gi1/2-3)
+      cisco.ios.ios_config:
+        lines:
+          - switchport access vlan 30
+          - switchport mode access
+          - spanning-tree portfast
+        parents: interface range GigabitEthernet1/2-3
+
+    - name: Configure trunk ports (Gi0/0-1)
+      cisco.ios.ios_config:
+        lines:
+          - switchport trunk encapsulation dot1q
+          - switchport mode trunk
+          - switchport trunk allowed vlan 10,20,30,1
+          - no shutdown
+        parents: interface range GigabitEthernet0/0-1
+
+    - name: Configure spanning-tree settings
+      cisco.ios.ios_config:
+        lines:
+          - spanning-tree mode rapid-pvst
+          - spanning-tree portfast default

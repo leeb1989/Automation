@@ -1,0 +1,134 @@
+
+- name: Configure Core1 router
+  hosts: Core1
+  gather_facts: no
+
+  tasks:
+
+    - name: Set hostname
+      cisco.ios.ios_config:
+        lines:
+          - hostname Core1
+
+    - name: Enable IP routing
+      cisco.ios.ios_config:
+        lines:
+          - ip routing
+
+    - name: Configure interface Gi0/2 - Link to FGT
+      cisco.ios.ios_config:
+        lines:
+          - description Link to FGT
+          - no switchport
+          - ip address 192.168.1.1 255.255.255.252
+          - no shutdown
+        parents: interface GigabitEthernet0/2
+
+    - name: Configure Loopback0
+      cisco.ios.ios_config:
+        lines:
+          - ip address 1.1.1.1 255.255.255.255
+        parents: interface Loopback0
+
+    - name: Configure Port-channel1 to Dist1
+      cisco.ios.ios_config:
+        lines:
+          - description downlink to Dist1
+          - no switchport
+          - ip address 10.1.0.1 255.255.255.0
+          - ip ospf 10 area 0
+          - no shutdown
+        parents: interface Port-channel1
+
+    - name: Configure Gi0/0-1 for Port-channel1
+      cisco.ios.ios_config:
+        lines:
+          - no switchport
+          - channel-group 1 mode active
+          - no shutdown
+        parents: interface range GigabitEthernet0/0-1
+
+    - name: Configure Port-channel3 to Dist2
+      cisco.ios.ios_config:
+        lines:
+          - description downlink to Dist2
+          - no switchport
+          - ip address 10.2.0.1 255.255.255.0
+          - ip ospf 10 area 0
+          - no shutdown
+        parents: interface Port-channel3
+
+    - name: Configure Gi1/0-1 for Port-channel3
+      cisco.ios.ios_config:
+        lines:
+          - no switchport
+          - channel-group 3 mode active
+          - no shutdown
+        parents: interface range GigabitEthernet1/0-1
+
+    - name: Add static route to 3.3.3.3 via 192.168.1.2
+      cisco.ios.ios_config:
+        lines:
+          - ip route 3.3.3.3 255.255.255.255 192.168.1.2
+
+    - name: Configure standard ACL for VTY access
+      cisco.ios.ios_config:
+        lines:
+          - permit 10.1.10.0 0.0.0.255
+          - deny any
+        parents: ip access-list standard VTY_ONLY
+
+    - name: Apply VTY ACL
+      cisco.ios.ios_config:
+        lines:
+          - access-class VTY_ONLY in
+          - transport input ssh
+          - login local
+        parents: line vty 0 4
+
+    - name: Configure BGP
+      cisco.ios.ios_config:
+        lines:
+          - bgp log-neighbor-changes
+          - neighbor 3.3.3.3 remote-as 65010
+          - neighbor 3.3.3.3 activate
+          - neighbor 3.3.3.3 update-source loopback0
+          - neighbor 3.3.3.3 ebgp-multihop 2
+          - neighbor 3.3.3.3 timers 3 9
+          - neighbor 3.3.3.3 fall-over bfd multi-hop
+          - neighbor 3.3.3.3 soft-reconfiguration inbound
+          - neighbor 3.3.3.3 distribute-list NO-TRANSIT out
+        parents: router bgp 65001
+
+    - name: Configure BGP address-family
+      cisco.ios.ios_config:
+        lines:
+          - network 1.1.1.1 mask 255.255.255.255
+        parents:
+          - router bgp 65001
+          - address-family ipv4
+
+    - name: Redistribute OSPF into BGP
+      cisco.ios.ios_config:
+        lines:
+          - redistribute ospf 10
+        parents:
+          - router bgp 65001
+          - address-family ipv4
+
+    - name: Configure OSPF
+      cisco.ios.ios_config:
+        lines:
+          - router-id 1.1.1.1
+          - network 1.1.1.1 0.0.0.0 area 0
+          - network 192.168.1.0 0.0.0.3 area 0
+        parents: router ospf 10
+
+    - name: Configure extended ACL ADVERTISED-ROUTES-CORE
+      cisco.ios.ios_config:
+        lines:
+          - permit ip 1.1.1.1 0.0.0.0
+          - permit ip 10.1.10.0 0.0.0.255
+          - permit ip 10.1.20.0 0.0.0.255
+          - permit ip 10.1.30.0 0.0.0.255
+        parents: ip access-list extended ADVERTISED-ROUTES-CORE

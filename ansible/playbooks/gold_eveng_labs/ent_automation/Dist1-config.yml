@@ -1,0 +1,188 @@
+
+- name: Configure Dist1 switch
+  hosts: Dist1
+  gather_facts: no
+
+  tasks:
+
+    - name: Set hostname
+      cisco.ios.ios_config:
+        lines:
+          - hostname Dist1
+
+    - name: Enable IP routing
+      cisco.ios.ios_config:
+        lines:
+          - ip routing
+
+    - name: Create VLANs 10, 20, 30
+      cisco.ios.ios_config:
+        lines:
+          - vlan 10
+          - vlan 20
+          - vlan 30
+
+    - name: Configure Loopback0
+      cisco.ios.ios_config:
+        lines:
+          - ip address 10.10.10.1 255.255.255.255
+        parents: interface Loopback0
+
+    - name: Configure Vlan10 with HSRP and ACL
+      cisco.ios.ios_config:
+        lines:
+          - ip address 10.1.10.2 255.255.255.0
+          - standby 10 ip 10.1.10.1
+          - standby 10 priority 110
+          - standby 10 preempt
+          - standby 10 track 1 decrement 30
+          - standby 10 track 3 decrement 30
+          - ip access-group VLAN_ISOLATION in
+        parents: interface Vlan10
+
+    - name: Configure Vlan20 with HSRP
+      cisco.ios.ios_config:
+        lines:
+          - ip address 10.1.20.2 255.255.255.0
+          - standby 20 ip 10.1.20.1
+          - standby 20 priority 110
+          - standby 20 preempt
+          - standby 20 track 1 decrement 30
+          - standby 20 track 3 decrement 30
+        parents: interface Vlan20
+
+    - name: Configure Vlan30 with HSRP
+      cisco.ios.ios_config:
+        lines:
+          - ip address 10.1.30.2 255.255.255.0
+          - standby 30 ip 10.1.30.1
+          - standby 30 priority 110
+          - standby 30 preempt
+          - standby 30 track 1 decrement 30
+          - standby 30 track 3 decrement 30
+        parents: interface Vlan30
+
+    - name: Configure IP SLA tracking
+      cisco.ios.ios_config:
+        lines:
+          - track 1 interface Port-channel1 line-protocol
+          - track 3 interface Port-channel3 line-protocol
+
+    - name: Configure Port-channel1 to CORE1
+      cisco.ios.ios_config:
+        lines:
+          - description Uplink to CORE1
+          - no switchport
+          - ip address 10.1.0.2 255.255.255.0
+          - ip ospf 10 area 0
+          - no shutdown
+        parents: interface Port-channel1
+
+    - name: Add interfaces to Port-channel1
+      cisco.ios.ios_config:
+        lines:
+          - no switchport
+          - channel-group 1 mode active
+          - no shutdown
+        parents: interface range GigabitEthernet0/0-1
+
+    - name: Configure Port-channel3 to CORE2
+      cisco.ios.ios_config:
+        lines:
+          - description Uplink to CORE2
+          - no switchport
+          - ip address 10.2.0.2 255.255.255.0
+          - ip ospf 10 area 0
+          - no shutdown
+        parents: interface Port-channel3
+
+    - name: Add interfaces to Port-channel3
+      cisco.ios.ios_config:
+        lines:
+          - no switchport
+          - channel-group 3 mode active
+          - no shutdown
+        parents: interface range GigabitEthernet1/0-1
+
+    - name: Configure trunk ports for access layer
+      cisco.ios.ios_config:
+        lines:
+          - switchport trunk encapsulation dot1q
+          - switchport mode trunk
+          - switchport trunk allowed vlan 10,20,30,1
+          - no shutdown
+        parents: interface range GigabitEthernet0/2-3
+
+    - name: Enable rapid-pvst and set STP priorities
+      cisco.ios.ios_config:
+        lines:
+          - spanning-tree mode rapid-pvst
+          - spanning-tree vlan 10,20,30,1 priority 4096
+
+    - name: Configure VTY access ACL
+      cisco.ios.ios_config:
+        lines:
+          - permit 10.1.10.0 0.0.0.255
+          - deny any
+        parents: ip access-list standard VTY_ONLY
+
+    - name: Apply VTY ACL and SSH settings
+      cisco.ios.ios_config:
+        lines:
+          - access-class VTY_ONLY in
+          - transport input ssh
+          - login local
+        parents: line vty 0 4
+
+    - name: Configure VLAN isolation ACL
+      cisco.ios.ios_config:
+        lines:
+          - deny ip 10.1.10.0 0.0.0.255 10.1.30.0 0.0.0.255
+          - permit ip any any
+        parents: ip access-list extended VLAN_ISOLATION
+
+    - name: Configure OSPF routing
+      cisco.ios.ios_config:
+        lines:
+          - router-id 10.10.10.1
+          - network 10.10.10.1 0.0.0.0 area 0
+          - network 10.1.0.0 0.0.0.255 area 0
+          - network 10.2.0.0 0.0.0.255 area 0
+          - network 10.1.10.0 0.0.0.255 area 0
+          - network 10.1.20.0 0.0.0.255 area 0
+          - network 10.1.30.0 0.0.0.255 area 0
+        parents: router ospf 10
+
+    - name: Exclude DHCP addresses
+      cisco.ios.ios_config:
+        lines:
+          - ip dhcp excluded-address 10.1.10.1 10.1.10.10
+          - ip dhcp excluded-address 10.1.20.1 10.1.20.10
+          - ip dhcp excluded-address 10.1.30.1 10.1.30.10
+
+    - name: Configure DHCP pool VLAN10
+      cisco.ios.ios_config:
+        lines:
+          - network 10.1.10.0 255.255.255.0
+          - default-router 10.1.10.1
+          - dns-server 8.8.8.8
+          - domain-name company.local
+        parents: ip dhcp pool VLAN10
+
+    - name: Configure DHCP pool VLAN20
+      cisco.ios.ios_config:
+        lines:
+          - network 10.1.20.0 255.255.255.0
+          - default-router 10.1.20.1
+          - dns-server 8.8.8.8
+          - domain-name company.local
+        parents: ip dhcp pool VLAN20
+
+    - name: Configure DHCP pool VLAN30
+      cisco.ios.ios_config:
+        lines:
+          - network 10.1.30.0 255.255.255.0
+          - default-router 10.1.30.1
+          - dns-server 8.8.8.8
+          - domain-name company.local
+        parents: ip dhcp pool VLAN30
