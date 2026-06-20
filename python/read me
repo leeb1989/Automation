@@ -1,3 +1,6 @@
 This enviroment is set up to be used on physical and virtual devices in eve-ng
 
 Gold eve-ng enviroment 
+
+To run scripts and plybooks need to be in WSL env (linux ubuntu) this is where
+pthon is installed
